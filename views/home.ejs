@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/home.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="dashboard-header">
+            <div class="header-content">
+                <div>
+                    <h1>Welcome, <%= userinfo.name %>!</h1>
+                    <% if (!noFamily && userinfo.families && userinfo.families.length > 0) { %>
+                        <p class="family-name">Family: <%= userinfo.families[0].familyname %></p>
+                    <% } %>
+                </div>
+                <a href="/settings" class="settings-icon">
+                    <i class="fas fa-cog"></i>
+                </a>
+            </div>
+        </header>
+
+        <div class="widgets-container">
+            <!-- Shopping Lists Widget -->
+            <div class="widget" onclick="window.location.href='/shopping-list'">
+                <div class="widget-header">
+                    <h2><i class="fas fa-shopping-cart"></i> Shopping Lists</h2>
+                </div>
+                <div class="widget-content">
+                    <% if (lists && lists.length > 0) { %>
+                        <div class="lists-summary">
+                            <% lists.forEach(list => { %>
+                                <div class="list-item">
+                                    <span class="list-name"><%= list.listname %></span>
+                                    <span class="list-stats">
+                                        <%= Object.values(list.items || {}).filter(item => item.status === 'pending').length %>
+                                        /<%= Object.keys(list.items || {}).length %> items pending
+                                    </span>
+                                </div>
+                            <% }) %>
+                        </div>
+                    <% } else { %>
+                        <p class="empty-state">No shopping lists created</p>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Budget Widget -->
+            <div class="widget" onclick="window.location.href='/budget/overview'">
+                <div class="widget-header">
+                    <h2><i class="fas fa-wallet"></i> Budget Overview</h2>
+                </div>
+                <div class="widget-content">
+                    <% if (!noFamily && userinfo.families && userinfo.families[0].plaidAccessToken) { %>
+                        <div class="budget-stats">
+                            <div class="stat">
+                                <span class="label">Income</span>
+                                <span class="value">$<%= monthlyincome.toFixed(2) %></span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Expenses</span>
+                                <span class="value">$<%= monthlyexpense.toFixed(2) %></span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Budget</span>
+                                <span class="value">$<%= budget.toFixed(2) %></span>
+                            </div>
+                        </div>
+                    <% } else if (!noFamily) { %>
+                        <div class="bank-link-message">
+                            <p>Bank account not linked yet</p>
+                            <button onclick="event.stopPropagation(); initiatePlaidLink()" class="btn btn-primary">Link Account to Start Tracking</button>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Events Widget -->
+            <div class="widget">
+                <div class="widget-header">
+                    <h2><i class="fas fa-calendar"></i> Events & Activities</h2>
+                </div>
+                <div class="widget-content coming-soon">
+                    <i class="fas fa-clock fa-3x"></i>
+                    <p>Coming Soon!</p>
+                    <p class="subtitle">Family event planning and activity management</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <% if (noFamily) { %>
+        <div class="no-family-message">
+            <h2>Welcome to Family Finance!</h2>
+            <p>It looks like you're not part of any family group yet.</p>
+            <p>To get started, create or join a family:</p>
+            <div class="action-buttons">
+                <button onclick="showCreateFamilyModal()" class="btn btn-primary">Create New Family</button>
+                <a href="/family/join" class="btn btn-secondary">Join Existing Family</a>
+            </div>
+        </div>
+    <% } else { %>
+        <!-- Your existing home page content -->
+    <% } %>
+
+    <!-- Add this modal HTML at the bottom of your body tag -->
+    <div id="createFamilyModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Create New Family</h2>
+            <form id="createFamilyForm">
+                <div class="form-group">
+                    <label for="familyName">Family Name:</label>
+                    <input type="text" id="familyName" name="familyName" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Family</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add this before closing body tag -->
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+    <script>
+    const modal = document.getElementById("createFamilyModal");
+    const span = document.getElementsByClassName("close")[0];
+
+    function showCreateFamilyModal() {
+        modal.style.display = "block";
+    }
+
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    document.getElementById("createFamilyForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const familyName = document.getElementById("familyName").value;
+        
+        try {
+            const response = await fetch('/families/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ familyName })
+            });
+
+            if (response.ok) {
+                alert('Family created successfully!');
+                window.location.reload();
+            } else {
+                const data = await response.json();
+                alert(data.error || 'Failed to create family');
+            }
+        } catch (error) {
+            alert('Error creating family');
+        }
+    });
+
+    async function initiatePlaidLink() {
+        try {
+            // Get link token from your server
+            const response = await fetch('/budget/link-bank', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            
+            if (!data.link_token) {
+                throw new Error('No link token returned from server');
+            }
+
+            const handler = Plaid.create({
+                token: data.link_token,
+                onSuccess: async (public_token, metadata) => {
+                    // Send public_token to your server to exchange for access token
+                    const exchangeResponse = await fetch('/budget/exchange-public-token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ public_token })
+                    });
+
+                    if (exchangeResponse.ok) {
+                        alert('Bank account linked successfully!');
+                        window.location.reload();
+                    } else {
+                        alert('Failed to link bank account. Please try again.');
+                    }
+                },
+                onExit: (err, metadata) => {
+                    if (err != null) {
+                        console.error(err);
+                        alert('Error linking bank account. Please try again.');
+                    }
+                },
+            });
+
+            handler.open();
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to initialize bank linking. Please try again.');
+        }
+    }
+    </script>
+</body>
+</html> 

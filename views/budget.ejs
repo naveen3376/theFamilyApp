@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Tracker</title>
+    <link rel="stylesheet" href="/css/budget.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Budget Tracker</h1>
+
+        <!-- Budget Overview -->
+        <div class="budget-overview">
+            <div class="month-navigation">
+                <button onclick="changeMonth(-1)" class="nav-btn">&larr;</button>
+                <h2 id="current-month">Loading...</h2>
+                <button onclick="changeMonth(1)" class="nav-btn">&rarr;</button>
+            </div>
+            <div id="overview-content" style="display: none;">
+                <p>Income: $<span id="income">0</span></p>
+                <p>Expenses: $<span id="expenses">0</span></p>
+                <p>Net Change: $<span id="net-change">0</span></p>
+                <div id="budget-tracking">
+                    <p>Budget: $<span id="budget">0</span></p>
+                    <p>Tracking: $<span id="tracking">0</span></p>
+                    <button id="set-budget-btn">Set Budget</button>
+                </div>
+                <div class="chart-controls">
+                    <select id="chart-type">
+                        <option value="cumulative">Month to Date Cumulative Expenses</option>
+                        <option value="category">Monthly Expenses by Category</option>
+                        <option value="merchant">Monthly Expenses by Merchant</option>
+                    </select>
+                </div>
+                <canvas id="expenseChart"></canvas>
+            </div>
+            <div id="loading-spinner" class="spinner">Loading...</div>
+        </div>
+
+        <style>
+            .month-navigation {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 20px;
+                margin-bottom: 20px;
+            }
+            .nav-btn {
+                padding: 5px 15px;
+                cursor: pointer;
+                font-size: 18px;
+            }
+            .spinner {
+                text-align: center;
+                padding: 20px;
+                font-style: italic;
+                color: #666;
+            }
+            .chart-controls {
+                margin-bottom: 1rem;
+            }
+            .chart-controls select {
+                padding: 0.5rem;
+                border-radius: 4px;
+                border: 1px solid #ddd;
+            }
+        </style>
+
+        <!-- Transactions Widget -->
+        <div class="transactions-widget">
+            <h3>Income</h3>
+            <ul id="income-list">
+                <% incomes.forEach(txn => { %>
+                    <li onclick="openExpenseModal('<%= txn.transaction_id %>', '<%= txn.merchant_name %>', 'INCOME')"><%= txn.date %>: $<%= txn.amount %> - <%= txn.name %></li>
+                <% }); %>
+            </ul>
+            <h3>Expenses</h3>
+            <ul id="expenses-list">
+                <% expenses.forEach(txn => { %>
+                    <li onclick="openExpenseModal('<%= txn.transaction_id %>', '<%= txn.merchant_name %>', 'EXPENSE')">
+                        <%= txn.date %>: $<%= txn.amount %> - <%= txn.name %>
+                    </li>
+                <% }); %>
+            </ul>
+        </div>
+
+        <div class="savings-tracker">
+            <h2>Savings History</h2>
+            <table class="savings-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Income</th>
+                        <th>Expenses</th>
+                        <th>Net Savings</th>
+                    </tr>
+                </thead>
+                <tbody id="savings-history">
+                    <% savingsHistory.forEach(month => { %>
+                        <tr>
+                            <td><%= month.monthYear %></td>
+                            <td class="amount income">$<%= month.income.toFixed(2) %></td>
+                            <td class="amount expense">$<%= month.expenses.toFixed(2) %></td>
+                            <td class="amount <%= (month.income - month.expenses) >= 0 ? 'positive' : 'negative' %>">
+                                $<%= (month.income - month.expenses).toFixed(2) %>
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+
+        <style>
+            .savings-tracker {
+                margin-top: 2rem;
+                padding: 1rem;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+
+            .savings-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 1rem;
+            }
+
+            .savings-table th,
+            .savings-table td {
+                padding: 0.75rem;
+                text-align: right;
+                border-bottom: 1px solid #eee;
+            }
+
+            .savings-table th:first-child,
+            .savings-table td:first-child {
+                text-align: left;
+            }
+
+            .savings-table .amount {
+                font-family: monospace;
+            }
+
+            .savings-table .positive {
+                color: green;
+            }
+
+            .savings-table .negative {
+                color: red;
+            }
+
+            .savings-table .income {
+                color: #2ecc71;
+            }
+
+            .savings-table .expense {
+                color: #e74c3c;
+            }
+        </style>
+    </div>
+
+    <!-- Expense Modal -->
+    <div id="expense-modal">
+        <div class="modal-header">
+            <h3>Update Expense</h3>
+            <button onclick="closeExpenseModal()" class="close-btn">&times;</button>
+        </div>
+        <form id="expense-form">
+            <div class="operation-choice">
+                <label>
+                    <input type="radio" name="operation" value="category" checked> Add Category
+                </label>
+                <label>
+                    <input type="radio" name="operation" value="exclude"> Exclude from Budget
+                </label>
+            </div>
+
+            <div id="category-section">
+                <label for="category">Category:</label>
+                <input type="text" id="category" name="category" placeholder="Enter category">
+                <label>
+                    <input type="checkbox" name="applyAllCategory"> Apply to all transactions from this merchant
+                </label>
+            </div>
+
+            <div id="exclude-section" style="display: none;">
+                <label>
+                    <input type="checkbox" name="applyAllExclude"> Apply to all transactions from this merchant
+                </label>
+            </div>
+
+            <button type="submit">Save</button>
+        </form>
+    </div>
+
+    <script>
+        // Handle Expense Update
+        document.getElementById('expense-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const transactionId = document.getElementById('expense-modal').dataset.txnid;
+            const merchant = document.getElementById('expense-modal').dataset.merchant;
+            const operation = document.querySelector('input[name="operation"]:checked').value;
+            const type = document.getElementById('expense-modal').dataset.type;
+            const applyToAll = operation === 'category' 
+                ? document.querySelector('input[name="applyAllCategory"]').checked
+                : document.querySelector('input[name="applyAllExclude"]').checked;
+
+            const data = {
+                transactionId,
+                merchant,
+                applyToAll,
+                operation,
+                category: operation === 'category' ? document.getElementById('category').value : null,
+                exclude: operation === 'exclude',
+                type: type
+            };
+
+            await fetch('/budget/expense/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            alert('Expense updated successfully!');
+            window.location.href = window.location.pathname; // Force a full page reload
+        };
+
+        // Toggle sections based on operation choice
+        document.querySelectorAll('input[name="operation"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                document.getElementById('category-section').style.display = 
+                    e.target.value === 'category' ? 'block' : 'none';
+                document.getElementById('exclude-section').style.display = 
+                    e.target.value === 'exclude' ? 'block' : 'none';
+            });
+        });
+
+        function closeExpenseModal() {
+            document.getElementById('expense-modal').style.display = 'none';
+        }
+
+        function openExpenseModal(transactionId, merchant, type) {
+            const modal = document.getElementById('expense-modal');
+            modal.dataset.txnid = transactionId;
+            modal.dataset.merchant = merchant;
+            modal.dataset.type = type;
+            modal.style.display = 'block';
+            // Reset form
+            document.getElementById('expense-form').reset();
+            document.getElementById('category-section').style.display = 'block';
+            document.getElementById('exclude-section').style.display = 'none';
+        }
+
+        // Handle Set Budget
+        document.getElementById('set-budget-btn').onclick = async () => {
+            const budget = prompt("Enter your monthly budget:");
+            if (budget) {
+                await fetch('/api/budget/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ budget })
+                });
+                alert('Budget set successfully!');
+                window.location.reload();
+            }
+        };
+
+        // Initialize the expense chart
+        let expenseChart = null; // Declare chart variable in wider scope
+
+        function initializeExpenseChart(chartData = null) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const chartType = document.getElementById('chart-type').value;
+            
+            let chartConfig;
+            
+            if (chartType === 'cumulative') {
+                chartConfig = {
+                    type: 'line',
+                    data: {
+                        labels: chartData?.cumulative.currentMonthChartData.dates || [],
+                        datasets: [
+                            {
+                                label: 'Current Month Expenses',
+                                data: chartData?.cumulative.currentMonthChartData.cumulative || [],
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Previous Month',
+                                data: chartData?.cumulative.previousMonthChartData.cumulative || [],
+                                borderColor: 'rgba(169, 169, 169, 0.5)',
+                                borderDash: [5, 5],
+                                tension: 0.1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Cumulative Expenses ($)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Day of Month'
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += new Intl.NumberFormat('en-US', {
+                                                style: 'currency',
+                                                currency: 'USD'
+                                            }).format(context.parsed.y);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+            } else {
+                // Get the appropriate data based on chart type
+                const data = chartType === 'category' ? chartData?.categories : chartData?.merchants;
+                
+                chartConfig = {
+                    type: 'bar',
+                    data: {
+                        labels: data?.labels || [],
+                        datasets: [
+                            {
+                                label: 'Current Month',
+                                data: data?.values.current || [],
+                                backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                                borderColor: 'rgb(75, 192, 192)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Previous Month',
+                                data: data?.values.previous || [],
+                                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                                borderColor: 'rgb(54, 162, 235)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Two Months Ago',
+                                data: data?.values.twoMonthsAgo || [],
+                                backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                                borderColor: 'rgb(255, 99, 132)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Amount ($)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: chartType === 'category' ? 'Categories' : 'Merchants'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += new Intl.NumberFormat('en-US', {
+                                                style: 'currency',
+                                                currency: 'USD'
+                                            }).format(context.parsed.y);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+
+            // Destroy existing chart if it exists
+            if (expenseChart) {
+                expenseChart.destroy();
+            }
+
+            // Create new chart
+            expenseChart = new Chart(ctx, chartConfig);
+        }
+
+        // Add event listener for chart type changes
+        document.getElementById('chart-type').addEventListener('change', async () => {
+            const date = currentDate;
+            await loadMonthData(date);
+        });
+
+        // Call the function when page loads
+        initializeExpenseChart();
+
+        let currentDate = new Date();
+        
+        function formatMonthYear(date) {
+            return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        }
+
+        function updateMonthDisplay() {
+            document.getElementById('current-month').textContent = formatMonthYear(currentDate);
+        }
+
+        // Load data immediately when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadMonthData(new Date());
+            document.getElementById('overview-content').style.display = 'block';
+            document.getElementById('loading-spinner').style.display = 'none';
+        });
+
+        async function loadMonthData(date) {
+            try {
+                const chartType = document.getElementById('chart-type').value;
+                const response = await fetch(
+                    `/budget/overview?year=${date.getFullYear()}&month=${date.getMonth() + 1}&chartType=${chartType}`, 
+                    {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    }
+                );
+                if (!response.ok) throw new Error('Failed to fetch data');
+                const data = await response.json();
+                
+                // Initialize chart with the new data structure
+                initializeExpenseChart(data.chartData);
+                
+                // Update other page elements as needed
+                updatePageWithData(data);
+            } catch (error) {
+                console.error('Error fetching month data:', error);
+                alert('Failed to load month data');
+            }
+        }
+
+        function updatePageWithData(data) {
+            document.getElementById('income').textContent = data.monthlyincome || 0;
+            document.getElementById('expenses').textContent = data.monthlyexpense || 0;
+            document.getElementById('net-change').textContent = 
+                (data.monthlyincome || 0) - (data.monthlyexpense || 0);
+            document.getElementById('budget').textContent = data.budget || 0;
+            document.getElementById('tracking').textContent = 
+                (data.monthlyexpense || 0) - (data.budget || 0);
+
+            updateTransactionsList('income-list', data.incomes || []);
+            updateTransactionsList('expenses-list', data.expenses || []);
+            
+            if (data.savingsHistory) {
+                updateSavingsHistory(data.savingsHistory);
+            }
+        }
+
+        async function changeMonth(offset) {
+            currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
+            updateMonthDisplay();
+            document.getElementById('overview-content').style.display = 'none';
+            document.getElementById('loading-spinner').style.display = 'block';
+            await loadMonthData(currentDate);
+            document.getElementById('overview-content').style.display = 'block';
+            document.getElementById('loading-spinner').style.display = 'none';
+        }
+
+        function updateTransactionsList(listId, transactions) {
+            const list = document.getElementById(listId);
+            list.innerHTML = transactions.map(txn => 
+                `<li onclick="openExpenseModal('${txn.transaction_id}', '${txn.merchant_name}', '${listId === 'income-list' ? 'INCOME' : 'EXPENSE'}')">${txn.date}: $${txn.amount} - ${txn.name}</li>`
+            ).join('');
+        }
+
+        function updateSavingsHistory(savingsHistory) {
+            const tbody = document.getElementById('savings-history');
+            tbody.innerHTML = savingsHistory.map(month => `
+                <tr>
+                    <td>${month.monthYear}</td>
+                    <td class="amount income">$${month.income.toFixed(2)}</td>
+                    <td class="amount expense">$${month.expenses.toFixed(2)}</td>
+                    <td class="amount ${(month.income - month.expenses) >= 0 ? 'positive' : 'negative'}">
+                        $${(month.income - month.expenses).toFixed(2)}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Initialize with current month
+        updateMonthDisplay();
+    </script>
+</body>
+</html>

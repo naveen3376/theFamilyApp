@@ -1,0 +1,171 @@
+<!-- views/shopping-list.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Lists</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/shoppingList.css">
+</head>
+<body>
+  <div class="container">
+    <div class="shopping-dashboard">
+      <div class="dashboard-header">
+        <h1 class="dashboard-title">Shopping Lists</h1>
+        <button class="add-list-btn" onclick="openNewListModal()">
+          <i class="fas fa-plus"></i>
+          <span>New List</span>
+        </button>
+      </div>
+
+      <div class="dashboard-content">
+        <div class="lists-sidebar">
+          <% if (lists && lists.length > 0) { %>
+            <% lists.forEach(list => { %>
+              <div class="list-item <%= activeList && activeList.listid === list.listid ? 'active' : '' %>"
+                   onclick="switchList('<%= list.listid %>')">
+                <span><%= list.listname %></span>
+                <i class="fas fa-chevron-right"></i>
+              </div>
+            <% }) %>
+          <% } else { %>
+            <p class="empty-state">No lists created yet</p>
+          <% } %>
+        </div>
+
+        <div class="list-content">
+          <% if (activeList) { %>
+            <h2><%= activeList.listname %></h2>
+            <form id="add-item-form" class="add-item-form">
+              <input type="text" id="new-item" class="add-item-input" 
+                     placeholder="Add new item" required />
+              <button type="submit" class="add-list-btn">
+                <i class="fas fa-plus"></i>
+                Add Item
+              </button>
+            </form>
+
+            <ul class="items-list">
+              <% if (activeList.items && Object.keys(activeList.items).length > 0) { %>
+                <% Object.entries(activeList.items).forEach(([itemId, item]) => { %>
+                  <li class="item">
+                    <span class="item-name"><%= item.itemname %></span>
+                    <div class="item-actions">
+                      <button class="btn btn-status" 
+                        data-new-status="<%= item.status === 'pending' ? 'bought' : 'pending' %>"
+                        onclick="updateStatus('<%= activeList.listid %>', '<%= itemId %>', this.dataset.newStatus)">
+                        <i class="fas <%= item.status === 'pending' ? 'fa-check' : 'fa-undo' %>"></i>
+                        <%= item.status === 'pending' ? 'Mark Bought' : 'Mark Pending' %>
+                      </button>
+                      <button class="btn btn-delete" onclick="deleteItem('<%= activeList.listid %>', '<%= itemId %>')">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </li>
+                <% }) %>
+              <% } else { %>
+                <p class="empty-state">No items in this list yet</p>
+              <% } %>
+            </ul>
+          <% } else { %>
+            <div class="empty-state">
+              <i class="fas fa-shopping-basket fa-3x"></i>
+              <p>Select or create a shopping list to get started!</p>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New List Modal -->
+  <div id="newListModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Create New List</h2>
+        <button class="close-modal" onclick="closeNewListModal()">&times;</button>
+      </div>
+      <form id="new-list-form">
+        <input type="text" id="new-list-name" class="add-item-input" 
+               placeholder="List Name" required />
+        <button type="submit" class="add-list-btn" style="width: 100%; margin-top: 1rem;">
+          Create List
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Modal functions
+    function openNewListModal() {
+      document.getElementById('newListModal').classList.add('active');
+    }
+
+    function closeNewListModal() {
+      document.getElementById('newListModal').classList.remove('active');
+    }
+
+    // Create new shopping list
+    document.getElementById('new-list-form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const listName = document.getElementById('new-list-name').value;
+      
+      axios.post('/shopping-list/create', { name: listName })
+        .then(response => {
+          // Switch to the newly created list
+          window.location.href = `/shopping-list?list=${response.data.listid}`;
+        })
+        .catch(error => {
+          console.error('Error creating list:', error);
+        });
+    });
+
+    // Switch between lists
+    function switchList(listId) {
+      window.location.href = `/shopping-list?list=${listId}`;
+    }
+
+    // Add item to current list
+    document.getElementById('add-item-form')?.addEventListener('submit', function(event) {
+      event.preventDefault();
+      const newItemName = document.getElementById('new-item').value;
+      const listId = '<%= activeList ? activeList.listid : "" %>';
+
+      axios.post('/shopping-list/item', { 
+        name: newItemName,
+        listId: listId
+      })
+      .then(response => {
+        window.location.reload();
+      })
+      .catch(error => {
+        console.error('Error adding item:', error);
+      });
+    });
+
+    // Update item status
+    function updateStatus(listId, itemId, newStatus) {
+      axios.put(`/shopping-list/item/${listId}/${itemId}`, { status: newStatus })
+        .then(response => {
+          window.location.reload();
+        })
+        .catch(error => {
+          console.error('Error updating status:', error);
+        });
+    }
+
+    // Delete item
+    function deleteItem(listId, itemId) {
+      axios.delete(`/shopping-list/item/${listId}/${itemId}`)
+        .then(() => {
+          window.location.reload();
+        })
+        .catch(error => {
+          console.error('Error deleting item:', error);
+        });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Bank Account</title>
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+</head>
+<body>
+    <h1>Link Your Bank Account</h1>
+    <button id="link-button">Connect a Bank</button>
+    <p><a href="/budget/show-transactions">View Transactions</a></p>
+
+    <script>
+        const linkToken = "<%= linkToken %>"; // Inject link token from backend
+
+        const handler = Plaid.create({
+            token: linkToken,
+            onSuccess: function(public_token, metadata) {
+                fetch('/budget/exchange-public-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ public_token })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('Bank account linked successfully!');
+                })
+                .catch(error => {
+                    console.error('Error linking bank account:', error);
+                });
+            },
+            onExit: function(err, metadata) {
+                if (err) console.error('Error exiting Plaid Link:', err);
+            }
+        });
+
+        document.getElementById('link-button').addEventListener('click', () => {
+            handler.open();
+        });
+    </script>
+</body>
+</html>

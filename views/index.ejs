@@ -1,0 +1,46 @@
+<!-- views/index.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to the Family App</title>
+  <link rel="stylesheet" href="/css/index.css">
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>Welcome to the Family App</h1>
+      <p>Your all-in-one solution for managing family tasks, shopping, and staying connected!</p>
+      <% if (!session.tokens) { %>
+        <a href="/auth/login" class="btn">Login with Cognito</a>
+      <% } else { %>
+        <a href="/shopping-list" class="btn">Go to Shopping List</a>
+      <% } %>
+    </div>
+
+    <div class="features">
+      <div class="feature-card">
+        <img src="/images/shopping-list.jpeg" alt="Shopping List" 
+             onerror="this.src='https://via.placeholder.com/150?text=🛒'">
+        <h3>Shopping List</h3>
+        <p>Create and manage shared shopping lists for groceries, household items, and more. Set budgets, track purchases, and never miss essential items!</p>
+      </div>
+
+      <div class="feature-card">
+        <img src="/images/budget.jpeg" alt="Budget Management"
+             onerror="this.src='https://via.placeholder.com/150?text=💰'">
+        <h3>Budget Management</h3>
+        <p>Track family expenses, set spending limits, and manage shared finances. Get insights into your spending patterns and save more effectively.</p>
+      </div>
+
+      <div class="feature-card">
+        <img src="/images/events.jpeg" alt="Activity & Event Planning"
+             onerror="this.src='https://via.placeholder.com/150?text=📅'">
+        <h3>Activity & Event Planning</h3>
+        <p>Plan family activities, schedule events, and coordinate gatherings. Keep everyone in sync with shared calendars and event reminders.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

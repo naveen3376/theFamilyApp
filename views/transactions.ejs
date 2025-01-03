@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transactions</title>
+</head>
+<body>
+    <h1>Transactions</h1>
+
+    <h2>Total Income: $<%= totalIncome %></h2>
+    <h2>Total Expenses: $<%= totalExpenses %></h2>
+
+    <h3>Income</h3>
+    <ul>
+        <% income.forEach(txn => { %>
+            <li><%= txn.date %>: $<%= txn.amount %> - <%= txn.name %></li>
+        <% }); %>
+    </ul>
+
+    <h3>Expenses</h3>
+    <ul>
+        <% expenses.forEach(txn => { %>
+            <li><%= txn.date %>: $<%= Math.abs(txn.amount) %> - <%= txn.name %></li>
+        <% }); %>
+    </ul>
+</body>
+</html>

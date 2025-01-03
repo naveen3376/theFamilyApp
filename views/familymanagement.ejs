@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Management</title>
+    <style>
+        .error-message { color: red; }
+        .success-message { color: green; }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <h1>Manage Your Family</h1>
+
+    <!-- Error/Success Messages -->
+    <% if (message) { %>
+        <p class="<%= messageType === 'error' ? 'error-message' : 'success-message' %>">
+            <%= message %>
+        </p>
+    <% } %>
+
+    <!-- Create Family Form -->
+    <h2>Create a New Family</h2>
+    <form action="/families/create" method="POST">
+        <input type="text" name="familyName" placeholder="Enter family name" required>
+        <button type="submit">Create</button>
+    </form>
+
+    <!-- List of Families -->
+    <h2>Your Families</h2>
+    <% if (families.length > 0) { %>
+        <ul>
+            <% families.forEach(family => { %>
+                <li>
+                    <strong><%= family.familyName %></strong>
+                    (Created By: <%= family.createdBy %>)
+                </li>
+            <% }) %>
+        </ul>
+    <% } else { %>
+        <p>No families found. Create one to get started!</p>
+    <% } %>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

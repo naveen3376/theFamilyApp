@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Settings</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/settings.css">
+</head>
+<body>
+    <div class="container">
+        <header class="settings-header">
+            <div class="header-content">
+                <h1>Family Settings</h1>
+                <button class="back-btn" onclick="window.location.href='/home'">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Dashboard
+                </button>
+            </div>
+        </header>
+
+        <div class="settings-container">
+            <div class="settings-sidebar">
+                <button class="tab-btn active" onclick="switchTab('family')">
+                    <i class="fas fa-users"></i>
+                    Family Members
+                </button>
+                <button class="tab-btn" onclick="switchTab('transactions')">
+                    <i class="fas fa-exchange-alt"></i>
+                    Transaction Rules
+                </button>
+            </div>
+
+            <div class="settings-content">
+                <div id="familyTab" class="tab-content active">
+                    <h2>Family Members</h2>
+                    <div class="members-list">
+                        <% userinfo.families[0].members.forEach(member => { %>
+                            <div class="member-item">
+                                <div class="member-info">
+                                    <span class="member-name"><%= member.name %></span>
+                                    <span class="member-email"><%= member.email %></span>
+                                </div>
+                                <% if (userinfo.families[0].owner === userinfo.sub) { %>
+                                    <button class="remove-btn" onclick="removeMember('<%= member.userid %>')">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                <% } %>
+                            </div>
+                        <% }); %>
+                    </div>
+
+                    <% if (userinfo.families[0].owner === userinfo.sub) { %>
+                        <div class="add-member-form">
+                            <h3>Invite New Member</h3>
+                            <div class="input-group">
+                                <input type="email" id="newMemberEmail" placeholder="Enter email address">
+                                <button class="primary-btn" onclick="inviteMember()">
+                                    <i class="fas fa-user-plus"></i>
+                                    Send Invite
+                                </button>
+                            </div>
+                        </div>
+                    <% } %>
+                </div>
+
+                <div id="transactionsTab" class="tab-content">
+                    <h2>Transaction Rules</h2>
+                    <div class="rules-section">
+                        <h3>Excluded Transactions</h3>
+                        <div class="rules-list" id="exclusionsList">
+                            <% if (rules.excludedMerchants && rules.excludedMerchants.length > 0) { %>
+                                <% rules.excludedMerchants.forEach(merchant => { %>
+                                    <div class="rule-item">
+                                        <span class="merchant-name"><%= merchant %></span>
+                                        <button class="remove-btn" onclick="removeExclusion('<%= merchant %>')">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                <% }); %>
+                            <% } else { %>
+                                <p class="empty-state">No excluded merchants</p>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <div class="rules-section">
+                        <h3>Category Assignments</h3>
+                        <div class="rules-list" id="categoriesList">
+                            <% if (rules.merchantCategory && Object.keys(rules.merchantCategory).length > 0) { %>
+                                <% Object.entries(rules.merchantCategory).forEach(([merchant, category]) => { %>
+                                    <div class="rule-item">
+                                        <div class="rule-info">
+                                            <span class="merchant-name"><%= merchant %></span>
+                                            <span class="category-name"><%= category %></span>
+                                        </div>
+                                        <button class="remove-btn" onclick="removeCategory('<%= merchant %>')">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                <% }); %>
+                            <% } else { %>
+                                <p class="empty-state">No category assignments</p>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`${tab}Tab`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function inviteMember() {
+            const email = document.getElementById('newMemberEmail').value;
+            try {
+                const response = await fetch('/families/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                if (!response.ok) throw new Error('Failed to send invite');
+                alert('Invitation sent successfully!');
+                location.reload();
+            } catch (error) {
+                alert('Failed to send invitation');
+            }
+        }
+
+        async function removeMember(userId) {
+            if (!confirm('Are you sure you want to remove this member?')) return;
+            try {
+                const response = await fetch(`/families/members/${userId}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) throw new Error('Failed to remove member');
+                location.reload();
+            } catch (error) {
+                alert('Failed to remove member');
+            }
+        }
+
+        async function removeExclusion(merchant) {
+            try {
+                const response = await fetch('/budget/rules/exclusion', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ merchant })
+                });
+                if (!response.ok) throw new Error('Failed to remove exclusion');
+                location.reload();
+            } catch (error) {
+                alert('Failed to remove exclusion');
+            }
+        }
+
+        async function removeCategory(merchant) {
+            try {
+                const response = await fetch('/budget/rules/category', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ merchant })
+                });
+                if (!response.ok) throw new Error('Failed to remove category');
+                location.reload();
+            } catch (error) {
+                alert('Failed to remove category');
+            }
+        }
+    </script>
+</body>
+</html> 
